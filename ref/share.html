@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>DG-LAB 波形分享</title>
+		<meta charset="UTF-8">
+		<meta name="viewport"
+			content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script src="js/ZXing.min.js"></script>
+		<script src="js/qrcode.min.js"></script>
+		<script src="js/pako.min.js"></script>
+		<script src="js/crc32.js"></script>
+	</head>
+	<body class="bg-gray-100 flex justify-center items-center h-screen">
+		<div class="bg-white p-8 rounded-lg shadow-md w-96">
+			<div id="input-form">
+				<div class="mb-4">
+					<label for="name" class="block text-gray-700 font-bold mb-2">名称：</label>
+					<input type="text" id="name" name="name"
+						class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+				</div>
+				<div class="mb-4">
+					<label for="pulse" class="block text-gray-700 font-bold mb-2">波形：</label>
+					<textarea id="pulse" name="pulse" rows="4"
+						class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></textarea>
+				</div>
+				<div class="mb-6">
+					<input type="file" id="fileInput" class="mb-4 hidden">
+					<label for="fileInput"
+						class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline cursor-pointer mr-1">
+						选择本地文件
+					</label>
+					<input type="file" accept="image/*" id="qrcodeInput" class="mb-4 hidden"
+						onChange="edcodeQRUrl(this,'file-url')">
+					<label for="qrcodeInput"
+						class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline cursor-pointer">
+						选择二维码
+					</label>
+				</div>
+				<button onclick="shareFile()"
+					class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+					分享
+				</button>
+				<button onclick="showSVGModal()"
+					class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+					预览
+				</button>
+				<button onclick="showQRModal()"
+					class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+					二维码
+				</button>
+			</div>
+		</div>
+
+		<div id="linkModal"
+			class="modal hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center">
+			<div class="modal-content bg-white p-6 rounded-lg shadow-md w-80">
+				<span class="close text-gray-500 hover:text-gray-700 absolute top-2 right-2 cursor-pointer"
+					onclick="closeLink()">&times;</span>
+				<p class="mb-4">未能成功复制，请手动复制</p>
+				<input type="text" id="modal-link"
+					class="shadow appearance-none border rounded w-full py-2 px-3 mb-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+				<button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+					onclick="closeLink()">
+					知道了
+				</button>
+			</div>
+		</div>
+
+		<div id="svgModal"
+			class="modal hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center">
+			<div class="modal-content bg-white p-6 rounded-lg shadow-md w-80">
+				<span class="close text-gray-500 hover:text-gray-700 absolute top-2 right-2 cursor-pointer"
+					onclick="closeSVGModal()">&times;</span>
+				<p id="svgmodal-message" class="mb-4"></p>
+				<div class="mb-4 flex justify-evenly" id="svg">
+
+				</div>
+				<button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+					onclick="closeSVGModal()">
+					知道了
+				</button>
+			</div>
+		</div>
+
+		<div id="qrModal" class="modal hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center">
+			<div class="modal-content bg-white p-6 rounded-lg shadow-md w-80">
+				<span class="close text-gray-500 hover:text-gray-700 absolute top-2 right-2 cursor-pointer"
+					onclick="closeQRModal()">&times;</span>
+				<p id="qrmodal-message" class="mb-4 flex justify-evenly"></p>
+				<div class="mb-4 flex justify-evenly" id="qrcode">
+
+				</div>
+				<p class="flex justify-evenly">打开 DG-LAB APP 扫码导入</p>
+				<p class="mb-4 flex justify-evenly text-sm">dg-bbs.com</p>
+				<button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+					onclick="closeQRModal()">
+					关闭
+				</button>
+			</div>
+		</div>
+
+		<div id="msgModal"
+			class="modal hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center">
+			<div class="modal-content bg-white p-6 rounded-lg shadow-md w-80">
+				<span class="close text-gray-500 hover:text-gray-700 absolute top-2 right-2 cursor-pointer"
+					onclick="closeModal()">&times;</span>
+				<div id="modal-message" class="mb-6"></div>
+				<button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+					onclick="closeModal()">
+					知道了
+				</button>
+			</div>
+		</div>
+
+		<div class="fixed top-2 right-2">
+			<button
+				class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+				onclick="window.open('https://forum.dg-bbs.com/d/13', '_blank')">
+				反馈
+			</button>
+		</div>
+
+		<div id="toast-container" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+		</div>
+
+		<script>
+			const FREQ_SLIDER_VALUE_MAP = [
+				10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+				37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+				50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78,
+				80, 85, 90, 95,
+				100, 110, 120, 130, 140, 150, 160, 170, 180, 190,
+				200, 233, 266, 300, 333, 366,
+				400, 450, 500, 550,
+				600, 700, 800, 900, 1000
+			];
+
+			const SECTION_TIME_MAP = [
+				0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.1, 2.2,
+				2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4, 4.1, 4.2, 4.3, 4.4,
+				4.5, 4.6, 4.7, 4.8, 4.9,
+				5, 5.2, 5.4, 5.6, 5.8, 6, 6.2, 6.4, 6.6, 6.8, 7, 7.2, 7.4, 7.6, 7.8,
+				8, 8.5, 9, 9.5,
+				10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+				20, 23.4, 26.6, 30, 33.4, 36.6,
+				40, 45, 50, 55,
+				60, 70, 80, 90,
+				100, 120, 140, 160, 180,
+				200, 250, 300
+			];
+
+			function generateSVG(data) {
+				const sections = data.replace('Dungeonlab+pulse:', '').split('+section+');
+
+				let svgWidth = 0;
+				let svgHeight = 100;
+
+				let svgContent = '';
+
+				const startPadding = 0;
+				const endPadding = 0;
+				svgWidth += startPadding;
+
+				let restDuration = 0;
+				let speedRate = 1;
+
+				// 只在最开始解析新的数据格式
+				const firstSectionParts = sections[0].split('=');
+				if (firstSectionParts.length === 2) {
+					const [prefix, data] = firstSectionParts;
+					const [rest, speed, num] = prefix.split(',').map(Number);
+					restDuration = rest || 0;
+					speedRate = speed || 1;
+					sections[0] = data; // 将 sections[0] 替换为原始数据部分
+				}
+
+				sections.forEach(section => {
+					const [header, pulsesStr] = section.split('/');
+					const [minFreq, maxFreq, durationIndex, mode, isOn] = header.split(',').map(Number);
+					const duration = SECTION_TIME_MAP[durationIndex];
+
+					if (isOn === 0) {
+						return;
+					}
+
+					const pulses = pulsesStr.split(',');
+					const pulsesDuration = pulses.length * 10; // 计算pulses总宽度, 每个 pulse 宽度为 10
+					const repeatTimes = Math.ceil(duration / (pulsesDuration /
+						100)); // pulsesDuration 单位是 0.1 秒，duration 单位是秒，需要转换单位, pulsesDuration / 100 得到秒
+
+					for (let j = 0; j < repeatTimes; j++) {
+						const sectionWidth = pulses.length * 10;
+						svgWidth += sectionWidth;
+
+						pulses.forEach((pulseStr, index) => {
+							const [value, type] = pulseStr.split('-').map(Number);
+							const pulseHeight = value;
+
+							const xPos = svgWidth - sectionWidth + index * 10;
+							const yPos = svgHeight - pulseHeight;
+
+							const pulseWidth = 10; // 每个 pulse 宽度固定为 10
+							let freq;
+
+							if (mode === 1) {
+								// 频率恒定
+								freq = FREQ_SLIDER_VALUE_MAP[minFreq];
+							} else if (mode === 2) {
+								// 频率从 minFreq 增加到 maxFreq
+								freq = FREQ_SLIDER_VALUE_MAP[minFreq + Math.floor((maxFreq - minFreq) * ((pulses
+									.length * j + index) / (pulses.length * repeatTimes)))];
+							} else if (mode === 3) {
+								// 每个脉冲元内频率从 minFreq 增加到 maxFreq
+								freq = FREQ_SLIDER_VALUE_MAP[minFreq + Math.floor((maxFreq - minFreq) * index /
+									pulses.length)];
+							} else if (mode === 4) {
+								// 频率变化仅发生在脉冲元之间
+								freq = FREQ_SLIDER_VALUE_MAP[minFreq + Math.floor((maxFreq - minFreq) * (j /
+									repeatTimes))];
+							}
+
+							const blackBarWidth = 0.5;
+							const pulseDurationInSecond = pulseWidth / 100; // 假设 10 宽度对应 0.1 秒，需要根据实际情况调整
+							const numBars = Math.floor(pulseDurationInSecond * 1000 /
+								freq); // 频率单位是毫秒，pulseDurationInSecond 单位是秒，需要转换单位
+
+							if (numBars > 0) {
+								const whiteBarWidth = (pulseWidth - numBars * blackBarWidth) / numBars;
+								if (whiteBarWidth < 0) whiteBarWidth = 0; // 避免白色条纹宽度为负数的情况
+
+								for (let i = 0; i < numBars; i++) {
+									const barXPos = xPos + i * (blackBarWidth + whiteBarWidth);
+									const color = 'black'; // 黑色条纹宽度固定为 0.5
+									svgContent +=
+										`<rect x="${barXPos}" y="${yPos}" width="${blackBarWidth}" height="${pulseHeight}" fill="${color}" />`;
+									const whiteBarXPos = barXPos + blackBarWidth;
+									svgContent +=
+										`<rect x="${whiteBarXPos}" y="${yPos}" width="${whiteBarWidth}" height="${pulseHeight}" fill="white" />`;
+								}
+							} else {
+								// 如果 numBars 为 0, 则整个 pulse 填充白色
+								svgContent +=
+									`<rect x="${xPos}" y="${yPos}" width="${pulseWidth}" height="${pulseHeight}" fill="white" />`;
+							}
+						});
+					}
+				});
+
+				svgWidth += endPadding;
+
+				const scrollSpeed = 50 * speedRate; // 应用 speedRate
+				const totalScrollDistance = svgWidth + 100;
+				const animationDuration = totalScrollDistance / scrollSpeed;
+
+				const animationContent = `
+			    <animateTransform
+			      attributeName="transform"
+			      attributeType="XML"
+			      type="translate"
+			      from="${-startPadding + 200}"
+			      to="${-svgWidth - 100}"
+			      dur="${animationDuration}s"
+			      repeatCount="indefinite"
+			    />
+			  `;
+
+				return `
+			    <svg width="240" height="100" viewBox="${-startPadding} 0 100 ${svgHeight}">
+			      <g>
+			        ${svgContent}
+			        ${animationContent}
+			      </g>
+			    </svg>
+			  `;
+			}
+		</script>
+
+		<script>
+			function reorganizeString(input) {
+				const parts = input.split('+');
+				const header = parts[0];
+				const pulsedataArray = parts.slice(1); // 获取所有数据段
+
+				const [
+					freqA1, freqA2, freqA3,
+					freqB1, freqB2, freqB3, , , ,
+					duration1, duration2, duration3,
+					mode1, mode2, mode3,
+					switch2, switch3,
+					restDuration, ,
+					speed
+				] = header.split(',');
+
+				// 处理数据段，调换 `-` 前后的数据
+				const processedPulsedata = pulsedataArray.map(pulsedata => {
+					const pulse = pulsedata.split(',');
+					const processedPulses = pulse.map(segment => {
+						const [before, after] = segment.split('-');
+						const intensity = Math.round((after / 20) * 100); // 将 0~20 映射到 0~100
+						return `${intensity}-${before}`; // 调换位置
+					});
+					return processedPulses.join(',');
+				});
+
+				const output =
+					`Dungeonlab+pulse:${restDuration},${speed},16=${freqA1},${freqB1},${duration1},${mode1},1/${processedPulsedata[0]}+section+${freqA2},${freqB2},${duration2},${mode2},${switch2}/${processedPulsedata[1]}+section+${freqA3},${freqB3},${duration3},${mode3},${switch3}/${processedPulsedata[2]}`;
+
+				return output;
+			}
+
+			document.getElementById('qrcodeInput').addEventListener('change', function(event) {
+				const file = event.target.files[0];
+				if (!file) {
+					showToast('未选择文件', 'error');
+					return;
+				}
+
+				const reader = new FileReader();
+				reader.onload = function(e) {
+					const img = new Image();
+					console.log(img);
+					img.onload = function() {
+						const codeReader = new ZXing.BrowserMultiFormatReader();
+						console.log(codeReader);
+						codeReader.decodeFromImage(img).then((result) => {
+							console.log('解码结果:', result.text);
+
+							const hexDataMatch = result.text.match(/#([0-9a-fA-F]+)$/);
+							if (hexDataMatch) {
+								const hexData = hexDataMatch[1];
+								try {
+									const byteArray = new Uint8Array(hexData.length / 2);
+									for (let i = 0; i < hexData.length; i += 2) {
+										byteArray[i / 2] = parseInt(hexData.substring(i, i + 2), 16);
+									}
+
+									try {
+										const gzipData = pako.inflate(byteArray);
+										const decodedData = decodeURIComponent(escape(String.fromCharCode
+											.apply(null,
+												gzipData)));
+										console.log("pulse", atob(decodedData));
+										showModal('波形转换成功！');
+										const newPulse = reorganizeString(atob(decodedData));
+										document.getElementById('pulse').value = newPulse;
+										document.getElementById('name').value = file.name.split('.')[0];
+										return;
+									} catch (e) {
+										console.error("pako.inflate failed:", e);
+
+										try {
+											const gzipData = pako.inflateRaw(byteArray);
+											const decodedData = decodeURIComponent(escape(String
+												.fromCharCode.apply(null,
+													gzipData)));
+											console.log("pulse", atob(decodedData));
+											showModal('波形转换成功！');
+											const newPulse = reorganizeString(atob(decodedData));
+											document.getElementById('pulse').value = newPulse;
+											document.getElementById('name').value = file.name.split('.')[
+												0];
+
+											return;
+										} catch (e) {
+											console.error("pako.inflateRaw failed:", e);
+											showModal("解码失败：gzip解压失败");
+										}
+									}
+								} catch (error) {
+									console.error("解码错误：", error);
+									showModal("解码失败");
+								}
+							} else {
+								showModal("未找到十六进制数据");
+							}
+						}).catch((error) => {
+							console.error('解码失败:', error);
+							showModal('解码失败，部分二维码因未知原因无法解析')
+						});
+					};
+					img.src = e.target.result;
+				};
+				reader.readAsDataURL(file);
+			});
+		</script>
+
+		<script>
+			function getOldQRCode(input) {
+				input = input.replace('Dungeonlab+pulse:', '');
+				const sections = input.split('+section+');
+				const firstSection = sections[0].split('=');
+				let warningMsg = '';
+
+				if (sections.length > 3) {
+					warningMsg += "【波形已被截断】二维码波形仅支持至多3小节，超过3小节的部分已丢弃<br>";
+				}
+
+				let restDuration = 0;
+				let speedRate = 1;
+
+				if (firstSection.length === 2) {
+					const [prefix, data] = firstSection;
+					const [rest, speed, num] = prefix.split(',').map(Number);
+					restDuration = rest || 0;
+					speedRate = speed || 1;
+					sections[0] = data;
+				}
+
+				const pulsedataArray = [];
+				pulsedataArray.push(sections[0].split('/')[1]);
+				pulsedataArray.push(sections[1].split('/')[1]);
+				pulsedataArray.push(sections[2].split('/')[1]);
+				const [freqA1, freqB1, duration1, mode1, switch1] = sections[0].split('/')[0].split(',');
+				const [freqA2, freqB2, duration2, mode2, switch2] = sections[1].split('/')[0].split(',');
+				const [freqA3, freqB3, duration3, mode3, switch3] = sections[2].split('/')[0].split(',');
+
+				// 处理数据段，调换 `-` 前后的数据
+				const processedPulsedata = pulsedataArray.map((plusedata, index) => {
+					const pulse = plusedata.split(',');
+					const processedPulses = pulse.map(segment => {
+						const [before, after] = segment.split('-');
+						const intensity = Math.round((before / 100) * 20); // 将 0~100 映射到 0~20
+						return `${after}-${intensity}`; // 调换位置
+					});
+
+					if (pulse.length > 30) {
+						warningMsg += `【小节${index+1}】脉冲元长度超出最大限度，可能无法导入<br>`;
+					}
+
+					return processedPulses.join(',');
+				});
+
+				const oldData =
+					`${freqA1},${freqA2},${freqA3},${freqB1},${freqB2},${freqB3},${pulsedataArray[0].split(',').length},${pulsedataArray[1].split(',').length},${pulsedataArray[2].split(',').length},${duration1},${duration2},${duration3},${mode1},${mode2},${mode3},${switch2},${switch3},${restDuration},16,${speedRate}+${processedPulsedata[0]}+${processedPulsedata[1]}+${processedPulsedata[2]}`;
+
+				if (warningMsg !== '') {
+					showModal(warningMsg);
+				}
+
+				return oldData;
+			}
+		</script>
+
+		<script>
+			// 获取URL参数
+			const urlParams = new URLSearchParams(window.location.search);
+			const name = urlParams.get('name');
+			const pulse = urlParams.get('pulse');
+
+			function showModal(message) {
+				document.getElementById('modal-message').innerHTML = message;
+				document.getElementById('msgModal').classList.remove('hidden'); // 显示模态框
+			}
+
+			function closeModal() {
+				document.getElementById('msgModal').classList.add('hidden'); // 隐藏模态框
+			}
+
+			function showLink(link) {
+				document.getElementById('modal-link').value = link;
+				document.getElementById('linkModal').classList.remove('hidden'); // 显示模态框
+			}
+
+			function closeLink() {
+				document.getElementById('linkModal').classList.add('hidden'); // 隐藏模态框
+			}
+
+			function showSVGModal(tip) {
+				if (validatePulseData(document.getElementById('pulse').value)) {
+					const svg = generateSVG(document.getElementById('pulse').value);
+					document.getElementById('svg').innerHTML = svg;
+					document.getElementById('svgmodal-message').textContent = tip ? tip : '波形预览';
+					document.getElementById('svgModal').classList.remove('hidden');
+				} else {
+					showModal("数据格式不正确，请检查参数");
+				}
+			}
+
+			function closeSVGModal() {
+				document.getElementById('svgModal').classList.add('hidden');
+			}
+
+			function showQRModal() {
+				if (validatePulseData(document.getElementById('pulse').value)) {
+					try {
+						document.getElementById('qrModal').classList.remove('hidden');
+						document.getElementById('qrmodal-message').textContent = '波形' + document.getElementById('name').value;
+
+						const pulse = document.getElementById('pulse').value;
+						const oldPulse = getOldQRCode(pulse);
+						console.log(oldPulse);
+						const base64 = btoa(oldPulse);
+						let compressedStr = pako.deflateRaw(base64);
+
+						const gzipHeader = new Uint8Array([31, 139, 8, 0, 0, 0, 0, 0, 0, 0]);
+						compressedStr = concatTypedArrays(gzipHeader, compressedStr);
+
+						const crc32 = CRC32.str(base64);
+						const isize = base64.length;
+
+						const gzipFooter = new Uint8Array([
+							crc32 & 0xFF, // CRC32 低 8 位
+							(crc32 >> 8) & 0xFF, // CRC32 中 8 位
+							(crc32 >> 16) & 0xFF, // CRC32 中 8 位
+							(crc32 >> 24) & 0xFF, // CRC32 高 8 位
+							isize & 0xFF, // ISIZE 低 8 位
+							(isize >> 8) & 0xFF, // ISIZE 中 8 位
+							(isize >> 16) & 0xFF, // ISIZE 中 8 位
+							(isize >> 24) & 0xFF, // ISIZE 高 8 位
+						]);
+						compressedStr = concatTypedArrays(compressedStr, gzipFooter);
+
+						console.log(pako.deflateRaw(base64));
+						console.log(pako.deflate(base64));
+						let hexStr = '';
+						for (let i = 0; i < compressedStr.length; i++) {
+							const hex = compressedStr[i].toString(16).toUpperCase();
+							hexStr += hex.length === 1 ? '0' + hex : hex;
+						}
+						document.getElementById('qrcode').innerHTML = '';
+						qrcode = new QRCode(document.getElementById("qrcode"), {
+							text: `https://www.dungeon-lab.com/app-download.php#DGLAB-PULSE#${hexStr}`,
+							correctLevel: QRCode.CorrectLevel.L,
+						});
+					} catch (e) {
+						console.log(e);
+					}
+				} else {
+					showModal("数据格式不正确，请检查参数");
+				}
+			}
+
+			function closeQRModal() {
+				document.getElementById('qrModal').classList.add('hidden');
+			}
+
+			function validatePulseData(decodedData) {
+				// 1. 检查开头是否为 "Dungeonlab+pulse:"
+				if (!decodedData.startsWith("Dungeonlab+pulse:")) {
+					return false;
+				}
+
+				// 2. 移除开头标识
+				const data = decodedData.substring("Dungeonlab+pulse:".length);
+
+				// 3. 分割数据段
+				const sections = data.split("+section+");
+
+				// 4. 校验第一段数据（兼容新格式）
+				const firstSection = sections[0];
+				const firstSectionParts = firstSection.split("/");
+
+				// 检查是否存在前缀
+				const prefixRegex = /^(\d+,\d+,\d+=)?/; // 匹配 "数字,数字,数字=" 的可选前缀
+				const prefixMatch = firstSection.match(prefixRegex);
+				const hasPrefix = prefixMatch && prefixMatch[1];
+
+				let intCounts, floatCounts;
+
+				if (hasPrefix) {
+					// 新格式：包含前缀
+					const dataPart = firstSection.substring(prefixMatch[0].length); // 移除前缀
+					const dataParts = dataPart.split("/");
+
+					if (dataParts.length !== 2) {
+						return false;
+					}
+
+					intCounts = dataParts[0].split(",");
+					floatCounts = dataParts[1].split(",");
+				} else {
+					// 旧格式：不包含前缀
+					if (firstSectionParts.length !== 2) {
+						return false;
+					}
+
+					intCounts = firstSectionParts[0].split(",");
+					floatCounts = firstSectionParts[1].split(",");
+				}
+
+				if (intCounts.length !== 5) {
+					return false;
+				}
+				if (!intCounts.every(count => /^\d+$/.test(count))) {
+					return false;
+				}
+
+				if (!floatCounts.every(count => /^-?\d+(\.\d+)?-\d+$/.test(count))) {
+					return false;
+				}
+
+				// 5. 校验后续数据段（与旧格式相同）
+				for (let i = 1; i < sections.length; i++) {
+					const section = sections[i];
+					const sectionParts = section.split("/");
+					if (sectionParts.length !== 2) {
+						return false;
+					}
+
+					const intCounts = sectionParts[0].split(",");
+					if (intCounts.length !== 5) {
+						return false;
+					}
+					if (!intCounts.every(count => /^\d+$/.test(count))) {
+						return false;
+					}
+
+					const floatCounts = sectionParts[1].split(",");
+					if (!floatCounts.every(count => /^-?\d+(\.\d+)?-\d+$/.test(count))) {
+						return false;
+					}
+				}
+
+				return true;
+			}
+
+			if (name && pulse) {
+				// base64解码
+				const decodedPulse = atob(pulse);
+
+				// 校验数据格式
+				if (validatePulseData(decodedPulse)) {
+					// 数据格式正确，创建下载链接
+
+					/*const link = document.createElement('a');
+					link.href = 'data:application/octet-stream;base64,' + btoa(decodedPulse);
+					link.download = name + '.pulse';
+					link.style.display = 'none';
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);*/
+
+					// 增强鲁棒性兼容更多浏览器
+					// 创建一个 Blob 对象
+					const blob = new Blob([decodedPulse], {
+						type: "application/octet-stream"
+					});
+
+					// 创建一个指向 Blob 的 URL
+					const url = URL.createObjectURL(blob);
+
+					// 创建一个隐藏的 a 标签
+					const link = document.createElement("a");
+					link.href = url;
+					link.download = name + ".pulse";
+					link.style.display = "none";
+
+					// 将 a 标签添加到文档中并触发点击
+					document.body.appendChild(link);
+					link.click();
+
+					// 清理
+					document.body.removeChild(link);
+					URL.revokeObjectURL(url); // 释放对象 URL
+
+					document.getElementById('name').value = name;
+					document.getElementById('pulse').value = decodedPulse;
+
+					//showModal('文件已开始下载');
+					showSVGModal('文件已开始下载，以下为波形预览：');
+				} else {
+					// 数据格式错误，显示错误消息
+					showModal('数据格式不正确，请检查参数');
+				}
+			} else {
+				//alert('参数错误');
+			}
+
+			function shareFile() {
+				const name = document.getElementById('name').value;
+				const pulse = document.getElementById('pulse').value;
+
+				if (name && pulse) {
+					try {
+						if (validatePulseData(pulse)) {
+							const encodedLink = window.location.origin + window.location.pathname + '?name=' + encodeURI(name) +
+								'&pulse=' +
+								btoa(pulse);
+
+							const api = 'https://spoo.me/';
+							const data = new URLSearchParams();
+							data.append('url', encodedLink);
+
+							const xhr = new XMLHttpRequest();
+							xhr.open('POST', api, true);
+							xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+							xhr.setRequestHeader('Accept', 'application/json');
+
+							xhr.onreadystatechange = function() {
+								if (xhr.readyState == 4) {
+									if (xhr.status == 200) {
+										console.log(xhr.responseText);
+										const responseJSON = JSON.parse(xhr.responseText);
+
+										// 使用 Clipboard API 复制链接到剪贴板
+										navigator.clipboard.writeText(responseJSON.short_url)
+											.then(() => {
+												showModal('分享链接已复制到剪贴板');
+											})
+											.catch(err => {
+												console.error('无法复制到剪贴板: ', err);
+												showLink(responseJSON.short_url);
+											});
+									} else {
+										console.error(`HTTP error! Status: ${xhr.status}`);
+										showLink(encodedLink);
+									}
+								}
+							};
+
+							xhr.send(data);
+
+						} else {
+							showModal('数据格式不正确，请检查参数');
+						}
+					} catch (error) {
+						showModal('Pulse 参数解码失败，请检查参数');
+						console.log(error);
+					}
+				} else {
+					showModal('请填写 Name 和 Pulse');
+				}
+			}
+			// 添加文件上传处理
+			const fileInput = document.getElementById('fileInput');
+			fileInput.addEventListener('change', handleFileSelect);
+
+			function handleFileSelect(event) {
+				const file = event.target.files[0];
+				if (!file) {
+					showToast('未选择文件', 'error');
+					return;
+				}
+				const reader = new FileReader();
+
+				document.getElementById('name').value = file.name.split('.')[0];
+
+				reader.onload = function(event) {
+					const fileContent = event.target.result;
+					if (validatePulseData(fileContent)) {
+						document.getElementById('pulse').value = fileContent;
+					} else {
+						showModal('文件校验失败');
+					}
+				};
+
+				reader.readAsText(file); // 以文本格式读取文件内容
+			}
+
+
+			function concatTypedArrays(a, b) {
+				const c = new Uint8Array(a.length + b.length);
+				c.set(a, 0);
+				c.set(b, a.length);
+				return c;
+			}
+
+			function showToast(message, type = 'default', duration = 3000, url = null) { // 添加 url 参数，默认值为 null
+				// 1. 获取或创建容器 (保持不变)
+				let toastContainer = document.getElementById('toast-container');
+				if (!toastContainer) {
+					toastContainer = document.createElement('div');
+					toastContainer.id = 'toast-container';
+					toastContainer.classList.add('fixed', 'bottom-5', 'left-1/2', 'transform', '-translate-x-1/2', 'z-50',
+						'pointer-events-none'); // 初始 pointer-events-none，稍后根据 url 移除
+					document.body.appendChild(toastContainer);
+				}
+
+				// 2. 创建吐司元素 (修改部分)
+				const toastElement = document.createElement('div');
+				toastElement.classList.add(
+					'bg-gray-800', // 默认背景色
+					'text-white',
+					'py-2',
+					'px-4',
+					'rounded-md',
+					'shadow-lg',
+					'mb-4', // 多个弹窗时的垂直间距
+					'transition-opacity',
+					'duration-300',
+					'opacity-0', // 初始透明度 0
+					'cursor-pointer' // 添加鼠标指针样式，表示可点击
+				);
+
+				// 3. 设置类型相关的背景色 (保持不变)
+				switch (type) {
+					case 'success':
+						toastElement.classList.remove('bg-gray-800');
+						toastElement.classList.add('bg-green-500');
+						break;
+					case 'error':
+						toastElement.classList.remove('bg-gray-800');
+						toastElement.classList.add('bg-red-500');
+						break;
+					case 'info':
+						toastElement.classList.remove('bg-gray-800');
+						toastElement.classList.add('bg-blue-500');
+						break;
+					case 'warning':
+						toastElement.classList.remove('bg-gray-800');
+						toastElement.classList.add('bg-yellow-500');
+						break;
+					default: // 'default' 或其他未知类型
+						break; // 保持默认 bg-gray-800
+				}
+
+				// 4. 设置消息内容 (修改部分)
+				if (url) {
+					// 如果传入了 URL，创建链接
+					const linkElement = document.createElement('a');
+					linkElement.href = url;
+					linkElement.textContent = message;
+					linkElement.classList.add('text-white', 'no-underline'); // 保持白色文字，移除默认下划线
+					linkElement.target = '_blank'; //  默认在新标签页打开，可以根据需要修改
+					toastElement.appendChild(linkElement);
+					toastContainer.classList.remove('pointer-events-none'); // 移除 pointer-events-none，使容器可点击
+				} else {
+					// 没有 URL，直接设置文本内容
+					toastElement.textContent = message;
+				}
+
+
+				// 5. 添加到容器 (保持不变)
+				toastContainer.appendChild(toastElement);
+
+				// 6. 显示动画 (保持不变)
+				setTimeout(() => {
+					toastElement.classList.remove('opacity-0');
+					toastElement.classList.add('opacity-100');
+				}, 10);
+
+				// 7. 定时消失 (保持不变)
+				setTimeout(() => {
+					toastElement.classList.remove('opacity-100');
+					toastElement.classList.add('opacity-0');
+					setTimeout(() => {
+						toastContainer.removeChild(toastElement);
+						if (toastContainer.children.length === 0) {
+							// toastContainer.remove();
+						}
+					}, 300);
+				}, duration);
+			}
+
+			showToast('波形太多？导入麻烦？点击这里试试批量导入！', 'info', undefined, 'mix.html')
+		</script>
+
+	</body>
+</html>

@@ -16,7 +16,8 @@
 // #define AHTX0_ENABLED
 // #define ENS160_ENABLED   // disable  this as for sensor too slow
 // #define COYOTE_ENABLED
-#define DIRECT_PWM_ENABLED
+// #define DIRECT_PWM_ENABLED
+#define COYOTE_ENABLED
 
 
 // Config service dependencies
@@ -28,6 +29,7 @@
 #undef AHTX0_ENABLED
 #undef ENS160_ENABLED
 #undef DIRECT_PWM_ENABLED
+#undef COYOTE_ENABLED
 #endif // MQTT_ENABLED
 
 
@@ -52,6 +54,7 @@
 #endif // CLI_ENABLED
 
 #ifdef SCREEN_ENABLED
+#define UCI_SCREEN_ENABLED "screen.enabled"
 #define UCI_SCREEN_WIDTH "screen.width"
 #define UCI_SCREEN_HEIGHT "screen.height"
 #define DEFAULT_SCREEN_WIDTH 128
@@ -93,18 +96,25 @@
 #define WATCHDOG_INTERVAL 10000
 
 #ifdef ENS160_ENABLED
+#define UCI_ENS160_ENABLED "ens160.enabled"
 #define UCI_ENS160_INTERVAL "ens160.interval"
 #define DEFAULT_ENS160_INTERVAL DEFAULT_SENSOR_INTERVAL
 #endif // ENS160_ENABLED
 
 #ifdef AHTX0_ENABLED
+#define UCI_AHTX0_ENABLED "ahtx0.enabled"
 #define UCI_AHTX0_INTERVAL "ahtx0.interval"
 #define DEFAULT_AHTX0_INTERVAL DEFAULT_SENSOR_INTERVAL
 #endif // AHTX0_ENABLED
 
 #ifdef DIRECT_PWM_ENABLED
+#define UCI_DIRECT_PWM_ENABLED "direct_pwm.enabled"
 #define UCI_DIRECT_PWM_ALLOWED_PINS "direct_pwm.allowed_pins"
 #endif // DIRECT_PWM_ENABLED
+
+#ifdef COYOTE_ENABLED
+#define UCI_COYOTE_ENABLED "coyote.enabled"
+#endif // COYOTE_ENABLED
 
 extern String hostname;
 extern Uci* uci;

@@ -5,11 +5,11 @@
 #include <Wire.h>
 #include <vector>
 
-#include "src/utils/utils.hpp"
 #include "src/global.hpp"
 #include "src/service/IService.hpp"
 #include "src/service/TimerService/TimerService.hpp"
 #include "src/service/WatchdogService/WatchdogService.hpp"
+#include "src/utils/utils.hpp"
 
 #ifdef CLI_ENABLED
 #include "src/service/CliService/CliService.hpp"
@@ -32,6 +32,12 @@
 #ifdef DIRECT_PWM_ENABLED
 #include "src/service/DirectPWMService/DirectPWMService.hpp"
 #endif // DIRECT_PWM_ENABLED
+#ifdef COYOTE_ENABLED
+#include "src/service/CoyoteService/CoyoteService.hpp"
+#include "src/service/CoyoteService/CoyoteV3ClientService.hpp"
+#include "src/service/CoyoteService/CoyoteCtlService.hpp"
+#include "src/service/CoyoteService/ICoyoteDeviceService.hpp"
+#endif // COYOTE_ENABLED
 
 std::vector<IService *> services;
 
@@ -68,7 +74,7 @@ void setup() {
 
     // cli
 #ifdef CLI_ENABLED
-    Cli* cli = new Cli(&Serial, uci->getBool(UCI_CLI_ECHO, true));
+    Cli *cli = new Cli(&Serial, uci->getBool(UCI_CLI_ECHO, true));
     CliService *cliService = new CliService(cli);
     services.push_back(cliService);
 #endif
@@ -83,10 +89,10 @@ void setup() {
     WiFi.mode(WIFI_OFF);
 #endif
 
-    //mqtt
+    // mqtt
 #ifdef MQTT_ENABLED
     String mesh = uci->get(UCI_MQTT_MESH, hostname);
-    String topic = uci->get(UCI_MQTT_TOPIC, APP_NAME"/" + mesh + "/" + hostname);
+    String topic = uci->get(UCI_MQTT_TOPIC, APP_NAME "/" + mesh + "/" + hostname);
     MQTTService *mqttService = new MQTTService(
         uci->get(UCI_MQTT_HOST, DEFAULT_MQTT_HOST),
         uci->get(UCI_MQTT_CLIENT, hostname),
@@ -104,32 +110,49 @@ void setup() {
 #endif // MQTT_ENABLED
 
     // watchdog service
-    
 
 #ifdef SCREEN_ENABLED
-    ScreenService *screenService = new ScreenService(
-        wire, uci->getUInt8(UCI_SCREEN_ADDRESS, DEFAULT_SCREEN_ADDRESS),
-        uci->getUInt8(UCI_SCREEN_WIDTH, DEFAULT_SCREEN_WIDTH),
-        uci->getUInt8(UCI_SCREEN_HEIGHT, DEFAULT_SCREEN_HEIGHT));
-    screenService->setup();
-    services.push_back(screenService);
+    if (uci->getBool(UCI_SCREEN_ENABLED, false)) {
+        ScreenService *screenService = new ScreenService(
+            wire, uci->getUInt8(UCI_SCREEN_ADDRESS, DEFAULT_SCREEN_ADDRESS),
+            uci->getUInt8(UCI_SCREEN_WIDTH, DEFAULT_SCREEN_WIDTH),
+            uci->getUInt8(UCI_SCREEN_HEIGHT, DEFAULT_SCREEN_HEIGHT));
+        screenService->setup();
+        services.push_back(screenService);
+    }
 #endif // SCREEN_ENABLED
 
     // ens160
 #ifdef ENS160_ENABLED
-    services.push_back(new TimerService(new Ens160Service(), uci->getInt(UCI_ENS160_INTERVAL, DEFAULT_ENS160_INTERVAL)));
+    if (uci->getBool(UCI_ENS160_ENABLED, false)) {
+        services.push_back(new TimerService(new Ens160Service(mqttService), uci->getInt(UCI_ENS160_INTERVAL, DEFAULT_ENS160_INTERVAL)));
+    }
 #endif // ENS160_ENABLED
-    
+
     // AHT
 #ifdef AHTX0_ENABLED
-    services.push_back(new TimerService(new AHTService(mqttService), DEFAULT_SENSOR_INTERVAL));
+    if (uci->getBool(UCI_AHTX0_ENABLED, false)) {
+        services.push_back(new TimerService(new AHTService(mqttService), uci->getInt(UCI_AHTX0_INTERVAL, DEFAULT_AHTX0_INTERVAL)));
+    }
 #endif // AHTX0_ENABLED
 
     // Direct PWM Service
 #ifdef DIRECT_PWM_ENABLED
-    DirectPWMService* directPWMService = new DirectPWMService(mqttService, uci->getUInt64(UCI_DIRECT_PWM_ALLOWED_PINS, 0x0000000000000018));
-    services.push_back(directPWMService);
+    if (uci->getBool(UCI_DIRECT_PWM_ENABLED, false)) {
+        DirectPWMService *directPWMService = new DirectPWMService(mqttService, uci->getUInt64(UCI_DIRECT_PWM_ALLOWED_PINS, 0x0000000000000018));
+        services.push_back(directPWMService);
+    }
 #endif // DIRECT_PWM_ENABLED
+
+#ifdef COYOTE_ENABLED
+    if(uci->getBool(UCI_COYOTE_ENABLED, false)) {
+        ICoyoteDeviceService *coyoteDeviceService = new CoyoteV3ClientService();
+        CoyoteService *coyoteService = new CoyoteService(coyoteDeviceService);
+        CoyoteCtlService *coyoteCtlService = new CoyoteCtlService(coyoteService, mqttService);
+        coyoteCtlService->setup();
+        services.push_back(coyoteCtlService);
+    }
+#endif // COYOTE_ENABLED
 
     // setup services
     for (IService *service : services) {

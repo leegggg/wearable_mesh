@@ -18,6 +18,7 @@
 // #define COYOTE_ENABLED
 // #define DIRECT_PWM_ENABLED
 #define COYOTE_ENABLED
+#define JIANDAN_ENABLED
 
 
 // Config service dependencies
@@ -30,6 +31,7 @@
 #undef ENS160_ENABLED
 #undef DIRECT_PWM_ENABLED
 #undef COYOTE_ENABLED
+#undef JIANDAN_ENABLED
 #endif // MQTT_ENABLED
 
 
@@ -115,6 +117,10 @@
 #ifdef COYOTE_ENABLED
 #define UCI_COYOTE_ENABLED "coyote.enabled"
 #endif // COYOTE_ENABLED
+
+#ifdef JIANDAN_ENABLED
+#define UCI_JIANDAN_ENABLED "jiandan.enabled"
+#endif // JIANDAN_ENABLED
 
 extern String hostname;
 extern Uci* uci;

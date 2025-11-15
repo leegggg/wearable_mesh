@@ -21,6 +21,7 @@ class MQTTService: public IService{
         void setup();
         void loop();
         String getReportTopic();
+        String getRequestTopic();
         PicoMQTT::SubscribedMessageListener* getListener(){  return mqttListener; }
         PicoMQTT::PicoMQTTInterface* getInterface(){ return mqttInterface; }
         PicoMQTT::Publisher* getPublisher(){ return mqttPublisher; }

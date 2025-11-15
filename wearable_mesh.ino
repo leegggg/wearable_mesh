@@ -39,6 +39,8 @@
 #include "src/service/CoyoteService/ICoyoteDeviceService.hpp"
 #endif // COYOTE_ENABLED
 
+#include "src/service/JiandanService/JiandanService.hpp"
+
 std::vector<IService *> services;
 
 String hostname = "";
@@ -153,6 +155,13 @@ void setup() {
         services.push_back(coyoteCtlService);
     }
 #endif // COYOTE_ENABLED
+
+#ifdef JIANDAN_ENABLED
+    if(uci->getBool(UCI_JIANDAN_ENABLED, false)) {
+        JiandanService *jiandanService = new JiandanService(mqttService);
+        services.push_back(jiandanService);
+    }
+#endif // JIANDAN_ENABLED
 
     // setup services
     for (IService *service : services) {

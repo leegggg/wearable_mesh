@@ -47,6 +47,10 @@ String MQTTService::getReportTopic(){
     return this->reportTopic;
 }
 
+String MQTTService::getRequestTopic(){
+    return this->requestTopic;
+}
+
 void MQTTService::setSubscribe(){
     this->mqttListener->subscribe(this->requestTopic.c_str(), [this](const char *topic, const char *payload) {
 #ifdef DEBUG

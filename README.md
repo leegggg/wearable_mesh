@@ -29,5 +29,9 @@ AT+UCI=SET,mqtt.mesh,wab-a1b2
 
 AT+UCI=SET,direct_pwm.allowed_pins,0x0000000000000018
 
+# For coyote and jiandan services
+AT+UCI=SET,coyote.enabled,1
+AT+UCI=SET,jiandan.enabled,1
+
 AT+RST
 ```
